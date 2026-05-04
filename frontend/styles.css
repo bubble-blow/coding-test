@@ -1,0 +1,7 @@
+body { font-family: Arial, sans-serif; margin: 20px; }
+section { border: 1px solid #ddd; padding: 12px; margin-bottom: 14px; border-radius: 8px; }
+.grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+textarea { width: 100%; min-height: 120px; }
+.step { border-top: 1px dashed #aaa; padding-top: 8px; margin-top: 8px; }
+pre { background: #f7f7f7; padding: 8px; overflow: auto; }
+button { margin-right: 6px; }
