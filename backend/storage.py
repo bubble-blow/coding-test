@@ -1,6 +1,6 @@
 import json
 import shutil
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -42,7 +42,7 @@ class Storage:
         STATE_FILE.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
 
     def new_version(self, step: str) -> str:
-        return datetime.now(UTC).strftime(f"{step}-%Y%m%d%H%M%S")
+        return datetime.now(timezone.utc).strftime(f"{step}-%Y%m%d%H%M%S")
 
     def step_dir(self, step: str, version: str) -> Path:
         base = CODE_ROOT if step == "coding" else DOC_ROOT
