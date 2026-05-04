@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AI Coding 开发平台</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+<div class="container">
+  <h1>AI Coding 端到端流水线</h1>
+
+  <section class="card">
+    <h2>LLM API 配置</h2>
+    <div class="grid">
+      <input id="apiBase" placeholder="API Base URL" />
+      <input id="apiKey" placeholder="API Key" />
+      <input id="model" placeholder="Model" value="gpt-4o-mini" />
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Pipeline</h2>
+    <div id="pipeline"></div>
+  </section>
+
+  <section class="card">
+    <h2>输出预览</h2>
+    <button id="refreshLogs">刷新 LLM 监控</button>
+    <pre id="preview"></pre>
+  </section>
+
+  <section class="card">
+    <h2>LLM API 监控</h2>
+    <pre id="logs"></pre>
+  </section>
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>

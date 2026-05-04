@@ -1,0 +1,11 @@
+body { font-family: Arial, sans-serif; margin: 0; background: #f5f7fb; }
+.container { max-width: 1200px; margin: 24px auto; padding: 0 16px; }
+.card { background: #fff; border-radius: 10px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+input, textarea, button { padding: 8px; }
+textarea { width: 100%; min-height: 90px; margin: 8px 0; }
+.step { border: 1px solid #e5eaf2; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+.row { display: flex; gap: 8px; margin-bottom: 8px; }
+.versions { background: #fafcff; padding: 8px; border-radius: 6px; }
+.version-item { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+pre { max-height: 300px; overflow: auto; background: #0b1020; color: #d7e1ff; padding: 12px; border-radius: 8px; }
