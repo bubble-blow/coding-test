@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Coding开发平台</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+    .card { border:1px solid #ccc; border-radius:8px; padding:12px; }
+    textarea { width:100%; min-height:120px; }
+    select,input,button { margin:4px; }
+    #pipeline { grid-column: span 2; }
+    .row { display:flex; gap:8px; align-items:center; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h3>LLM API配置</h3>
+    <input id="base_url" placeholder="Base URL" />
+    <input id="api_key" placeholder="API Key" />
+    <input id="model" placeholder="Model" />
+    <button onclick="saveConfig()">保存配置</button>
+  </div>
+
+  <div class="card">
+    <h3>LLM API监控</h3>
+    <pre id="monitor"></pre>
+  </div>
+
+  <div class="card" id="pipeline">
+    <h3>流水线</h3>
+    <div class="row">
+      <select id="step"></select>
+      <select id="history"></select>
+      <button onclick="loadHistory()">查看历史</button>
+      <button onclick="selectHistory()">选定版本</button>
+      <button onclick="deleteHistory()">删除版本</button>
+      <button onclick="preview()">预览按钮</button>
+    </div>
+    <textarea id="prompt" placeholder="输入本步骤提示词"></textarea>
+    <button onclick="runStep()">运行步骤</button>
+    <button onclick="approve()">人工决策：通过并进入下一步</button>
+    <button onclick="revise()">人工决策：要求LLM修改</button>
+    <h4>输出（可编辑）</h4>
+    <textarea id="output"></textarea>
+    <button onclick="saveEdit()">保存编辑</button>
+  </div>
+
+<script>
+const steps = ["requirements","solution","architecture","coding","review","integration"];
+let state = null;
+
+async function api(url, method='GET', body=null){
+  const r = await fetch(url,{method,headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):null});
+  return r.json();
+}
+function fillSteps(){
+  const s = document.getElementById('step');
+  s.innerHTML = steps.map(x=>`<option value="${x}">${x}</option>`).join('');
+}
+async function refresh(){
+  state = await api('/api/state');
+  document.getElementById('base_url').value = state.llm_config.base_url;
+  document.getElementById('api_key').value = state.llm_config.api_key;
+  document.getElementById('model').value = state.llm_config.model;
+  document.getElementById('monitor').textContent = JSON.stringify(state.monitor.slice(-20), null, 2);
+  updateHistory();
+}
+function updateHistory(){
+  const step = document.getElementById('step').value;
+  const h = document.getElementById('history');
+  const runs = state.runs[step] || [];
+  h.innerHTML = runs.map(r=>`<option value="${r.run_id}">${r.run_id}${r.approved?' ✅':''}</option>`).join('');
+}
+async function saveConfig(){
+  await api('/api/llm/config','POST',{base_url:base_url.value,api_key:api_key.value,model:model.value});
+  refresh();
+}
+async function runStep(){
+  const step = document.getElementById('step').value;
+  const based = document.getElementById('history').value || null;
+  const run = await api('/api/pipeline/run','POST',{step,prompt:prompt.value,based_on_run_id:based});
+  output.value = typeof run.output === 'string' ? run.output : JSON.stringify(run.output,null,2);
+  refresh();
+}
+async function approve(){
+  const step = document.getElementById('step').value;
+  const run_id = document.getElementById('history').value;
+  await api('/api/pipeline/decision','POST',{step,run_id,action:'approve'});
+  refresh();
+}
+async function revise(){
+  const step = document.getElementById('step').value;
+  const run_id = document.getElementById('history').value;
+  await api('/api/pipeline/decision','POST',{step,run_id,action:'revise'});
+  refresh();
+}
+async function loadHistory(){
+  const step = document.getElementById('step').value;
+  const run_id = document.getElementById('history').value;
+  const run = (state.runs[step]||[]).find(x=>x.run_id===run_id);
+  if (!run) return;
+  output.value = typeof run.output === 'string' ? run.output : JSON.stringify(run.output,null,2);
+}
+async function saveEdit(){
+  const step = document.getElementById('step').value;
+  const run_id = document.getElementById('history').value;
+  await api('/api/pipeline/edit','POST',{step,run_id,content:output.value});
+  refresh();
+}
+async function selectHistory(){
+  const step = document.getElementById('step').value;
+  const run_id = document.getElementById('history').value;
+  await api('/api/pipeline/select','POST',{step,run_id});
+  refresh();
+}
+async function deleteHistory(){
+  const step = document.getElementById('step').value;
+  const run_id = document.getElementById('history').value;
+  await fetch(`/api/pipeline/run/${step}/${run_id}`,{method:'DELETE'});
+  refresh();
+}
+function preview(){ alert('预览入口：可扩展为打开构建产物页面'); }
+
+document.getElementById('step').addEventListener('change', updateHistory);
+fillSteps();
+refresh();
+</script>
+</body>
+</html>
