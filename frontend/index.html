@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Coding 开发平台</title>
+  <link rel="stylesheet" href="/assets/styles.css" />
+</head>
+<body>
+  <h1>AI Coding 开发平台</h1>
+  <section>
+    <h2>LLM API 配置</h2>
+    <div class="grid">
+      <input id="provider" placeholder="provider" value="openai" />
+      <input id="api_base" placeholder="api_base" />
+      <input id="api_key" placeholder="api_key" />
+      <input id="model" placeholder="model" />
+      <button onclick="saveConfig()">保存配置</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>流水线</h2>
+    <div id="steps"></div>
+  </section>
+
+  <section>
+    <h2>LLM API 监控</h2>
+    <pre id="metrics"></pre>
+  </section>
+
+  <section>
+    <h2>代码输入预览（用于编码阶段）</h2>
+    <button onclick="previewCodegenInput()">预览</button>
+    <pre id="preview"></pre>
+  </section>
+
+  <script src="/assets/app.js"></script>
+</body>
+</html>
