@@ -5,7 +5,7 @@ import re
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 DATA_DIR = Path('data')
 STATE_FILE = DATA_DIR / 'state.json'
@@ -24,7 +24,7 @@ def ensure_dirs() -> None:
         (CODE_ROOT / step).mkdir(parents=True, exist_ok=True)
 
 
-def _default_state() -> dict[str, Any]:
+def _default_state() -> Dict[str, Any]:
     return {
         'llm_config': {'base_url': '', 'api_key': '', 'model': ''},
         'steps': {s: {'input': '', 'versions': [], 'selected_version': None} for s in STEPS},
@@ -32,7 +32,7 @@ def _default_state() -> dict[str, Any]:
     }
 
 
-def load_state() -> dict[str, Any]:
+def load_state() -> Dict[str, Any]:
     ensure_dirs()
     if not STATE_FILE.exists():
         state = _default_state()
@@ -41,15 +41,15 @@ def load_state() -> dict[str, Any]:
     return json.loads(STATE_FILE.read_text(encoding='utf-8'))
 
 
-def save_state(state: dict[str, Any]) -> None:
+def save_state(state: Dict[str, Any]) -> None:
     STATE_FILE.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding='utf-8')
 
 
-def next_version_id(step_state: dict[str, Any]) -> int:
+def next_version_id(step_state: Dict[str, Any]) -> int:
     return len(step_state['versions']) + 1
 
 
-def persist_step_output(step: str, version_id: int, text_output: str, files: dict[str, str] | None = None, base_version: int | None = None) -> dict[str, str]:
+def persist_step_output(step: str, version_id: int, text_output: str, files: Optional[Dict[str, str]] = None, base_version: Optional[int] = None) -> Dict[str, Any]:
     timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
     doc_dir = DOC_ROOT / step / f'v{version_id}'
     code_dir = CODE_ROOT / step / f'v{version_id}'
@@ -90,9 +90,9 @@ def _copy_dir(src: Path, dst: Path) -> None:
             shutil.copy2(p, target)
 
 
-def parse_code_blocks_to_files(text: str) -> dict[str, str]:
+def parse_code_blocks_to_files(text: str) -> Dict[str, str]:
     # 格式: ```path/to/file.py\n...\n```
-    result: dict[str, str] = {}
+    result: Dict[str, str] = {}
     pattern = re.compile(r'```([^\n`]+)\n(.*?)```', re.S)
     for m in pattern.finditer(text):
         filename = m.group(1).strip()
@@ -103,7 +103,7 @@ def parse_code_blocks_to_files(text: str) -> dict[str, str]:
 
 
 def collect_all_code_markdown() -> str:
-    parts: list[str] = []
+    parts: List[str] = []
     for root in [CODE_ROOT]:
         if not root.exists():
             continue

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import Any, Dict, Tuple
 
 import httpx
 
@@ -15,7 +15,7 @@ STEP_PROMPTS = {
 }
 
 
-async def call_llm(config: dict[str, str], step: str, user_input: str) -> tuple[str, dict[str, Any]]:
+async def call_llm(config: Dict[str, str], step: str, user_input: str) -> Tuple[str, Dict[str, Any]]:
     url = config.get('base_url', '').rstrip('/')
     api_key = config.get('api_key', '')
     model = config.get('model', '')

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
@@ -32,14 +32,14 @@ class LLMConfig(BaseModel):
 class StepRunReq(BaseModel):
     step: str
     input_text: str
-    base_version: int | None = None
+    base_version: Optional[int] = None
 
 
 class VersionActionReq(BaseModel):
     step: str
     version_id: int
     action: str
-    feedback: str | None = None
+    feedback: Optional[str] = None
 
 
 @app.get('/')
@@ -48,12 +48,12 @@ def index() -> FileResponse:
 
 
 @app.get('/api/state')
-def get_state() -> dict[str, Any]:
+def get_state() -> Dict[str, Any]:
     return load_state()
 
 
 @app.post('/api/llm/config')
-def set_config(cfg: LLMConfig) -> dict[str, Any]:
+def set_config(cfg: LLMConfig) -> Dict[str, Any]:
     state = load_state()
     state['llm_config'] = cfg.model_dump()
     save_state(state)
@@ -61,7 +61,7 @@ def set_config(cfg: LLMConfig) -> dict[str, Any]:
 
 
 @app.post('/api/step/run')
-async def run_step(req: StepRunReq) -> dict[str, Any]:
+async def run_step(req: StepRunReq) -> Dict[str, Any]:
     if req.step not in STEPS:
         raise HTTPException(400, 'invalid step')
 
@@ -107,7 +107,7 @@ async def run_step(req: StepRunReq) -> dict[str, Any]:
 
 
 @app.post('/api/step/version/action')
-def version_action(req: VersionActionReq) -> dict[str, Any]:
+def version_action(req: VersionActionReq) -> Dict[str, Any]:
     state = load_state()
     step_state = state['steps'][req.step]
     versions = step_state['versions']
@@ -133,7 +133,7 @@ def version_action(req: VersionActionReq) -> dict[str, Any]:
     return {'ok': True}
 
 
-def selected_output(state: dict[str, Any], step: str) -> str:
+def selected_output(state: Dict[str, Any], step: str) -> str:
     sid = state['steps'][step].get('selected_version')
     if not sid:
         return ''
@@ -143,7 +143,7 @@ def selected_output(state: dict[str, Any], step: str) -> str:
     return ''
 
 
-def auto_fill_next_input(state: dict[str, Any], step: str, output: str) -> None:
+def auto_fill_next_input(state: Dict[str, Any], step: str, output: str) -> None:
     idx = STEPS.index(step)
     if idx + 1 >= len(STEPS):
         return
