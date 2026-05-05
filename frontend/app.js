@@ -35,6 +35,7 @@ function stepTemplate(step) {
 function render() {
   document.getElementById("pipeline").innerHTML = STEPS.map(stepTemplate).join("");
   for (const step of STEPS) renderStep(step);
+  document.getElementById("inflight").textContent = JSON.stringify(state.in_flight_requests || [], null, 2);
   document.getElementById("logs").textContent = JSON.stringify(state.llm_logs, null, 2);
 }
 

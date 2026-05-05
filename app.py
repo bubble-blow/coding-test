@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List
+import uuid
 
 from flask import Flask, jsonify, request, send_from_directory
 
@@ -28,6 +29,8 @@ PIPELINE_STEPS = [
     "review",
     "delivery",
 ]
+
+IN_FLIGHT_REQUESTS: Dict[str, Dict] = {}
 
 PROMPTS = {
     "requirements": "输出需求文档（markdown）",
@@ -180,6 +183,7 @@ def api_state():
     state["review_code_paths"] = code_paths
     if not state.get("delivery_code_paths"):
         state["delivery_code_paths"] = code_paths
+    state["in_flight_requests"] = list(IN_FLIGHT_REQUESTS.values())
     return jsonify(state)
 
 
@@ -207,12 +211,16 @@ def api_execute(step: str):
         input_text += "\n\n## 架构设计\n" + selected_content(state, "architecture")
         input_text += "\n\n## 现有代码\n" + build_all_code_markdown()
 
+    req_id = str(uuid.uuid4())
+    IN_FLIGHT_REQUESTS[req_id] = {"id": req_id, "step": step, "started_at": now_str()}
     try:
         output = call_llm(state, step, input_text)
     except Exception as e:
         state["llm_logs"].append({"step": step, "time": now_str(), "model": state["llm_config"].get("model", ""), "status": f"error: {e}"})
         save_state(state)
         return jsonify({"error": str(e)}), 400
+    finally:
+        IN_FLIGHT_REQUESTS.pop(req_id, None)
     versions = state["steps"][step]
     vid = next_version_id(step, versions)
     version = VersionRecord(id=vid, created_at=now_str(), content=output).__dict__
