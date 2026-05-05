@@ -23,8 +23,9 @@ function defaultInput(step) {
 function stepTemplate(step) {
   const inputable = !["review", "delivery"].includes(step);
   const val = inputable ? defaultInput(step) : "";
+  const codePaths = (step === "review") ? (state?.review_code_paths || []) : [];
   return `<div class="card" id="card-${step}"><h3>${step}</h3>
-    ${inputable ? `<textarea id="in-${step}" placeholder="输入">${val}</textarea>` : `<div>无输入框（显示代码路径）</div>`}
+    ${inputable ? `<textarea id="in-${step}" placeholder="输入">${val}</textarea>` : `<div>${step === "review" ? `代码文件路径：<pre>${codePaths.join("\n") || "(暂无)"}</pre>` : "无输入框（显示代码路径）"}</div>`}
     <button onclick="execute('${step}')">执行</button>
     <div class="versions" id="out-${step}"></div>
   </div>`;
@@ -63,7 +64,11 @@ async function execute(step) {
     if (!target_url) return;
     await api(`/api/execute/${step}`, 'POST', { target_url });
   } else {
-    const input = document.getElementById(`in-${step}`)?.value || '';
+    let input = document.getElementById(`in-${step}`)?.value || '';
+    if (step === 'review') {
+      const paths = (state?.review_code_paths || []).join('\n');
+      input = `请基于以下代码文件路径进行评审：\n${paths}`;
+    }
     await api(`/api/execute/${step}`, 'POST', { input });
   }
   await refresh();

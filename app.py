@@ -147,6 +147,16 @@ def parse_code_blocks(content: str) -> Dict[str, str]:
     return files
 
 
+
+
+def list_code_paths(version_id: str | None) -> List[str]:
+    if not version_id:
+        return []
+    root = CODE_DIR / version_id
+    if not root.exists():
+        return []
+    return [str(f.relative_to(root)) for f in sorted(root.glob("**/*")) if f.is_file()]
+
 def selected_content(state: Dict, step: str) -> str:
     sid = state["selected"].get(step)
     if not sid:
@@ -164,7 +174,9 @@ def index():
 
 @app.get("/api/state")
 def api_state():
-    return jsonify(load_state())
+    state = load_state()
+    state["review_code_paths"] = list_code_paths(state.get("selected", {}).get("coding"))
+    return jsonify(state)
 
 
 @app.post("/api/config")
