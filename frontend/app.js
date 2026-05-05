@@ -70,14 +70,19 @@ async function execute(step) {
     const target_url = prompt('请输入目标URL子路径');
     if (!target_url) return;
     await api(`/api/execute/${step}`, 'POST', { target_url });
-  } else {
-    let input = document.getElementById(`in-${step}`)?.value || '';
-    if (step === 'review') {
-      const paths = (state?.review_code_paths || []).join('\n');
-      input = `请基于以下代码文件路径进行评审：\n${paths}`;
-    }
-    await api(`/api/execute/${step}`, 'POST', { input });
+    await refresh();
+    return;
   }
+
+  let input = document.getElementById(`in-${step}`)?.value || '';
+  if (step === 'review') {
+    const paths = (state?.review_code_paths || []).join('\n');
+    input = `请基于以下代码文件路径进行评审：\n${paths}`;
+  }
+
+  const req = api(`/api/execute/${step}`, 'POST', { input });
+  setTimeout(() => { refresh(); }, 50);
+  await req;
   await refresh();
 }
 async function selectVer(step, vid) {
@@ -87,7 +92,9 @@ async function selectVer(step, vid) {
 async function requireModify(step, vid) {
   const extra = prompt('请输入修改要求');
   const v = state.steps[step].find(x => x.id === vid);
-  await api(`/api/execute/${step}`, 'POST', { input: (v?.content || '') + '\n修改要求:\n' + (extra || '') });
+  const req = api(`/api/execute/${step}`, 'POST', { input: (v?.content || '') + '\n修改要求:\n' + (extra || '') });
+  setTimeout(() => { refresh(); }, 50);
+  await req;
   await refresh();
 }
 async function deleteVer(step, vid) { await api(`/api/version/${step}/${vid}`, 'DELETE'); await refresh(); }
