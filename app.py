@@ -118,7 +118,7 @@ def call_llm(state: Dict, step: str, input_text: str) -> str:
             "temperature": 0.2,
             "max_tokens": max_tokens,
         }
-        resp = requests.post(url, headers=headers, json=payload, timeout=180)
+        resp = requests.post(url, headers=headers, json=payload, timeout=600)
         resp.raise_for_status()
         data = resp.json()
 
