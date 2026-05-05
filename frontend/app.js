@@ -35,7 +35,12 @@ function stepTemplate(step) {
 function render() {
   document.getElementById("pipeline").innerHTML = STEPS.map(stepTemplate).join("");
   for (const step of STEPS) renderStep(step);
-  document.getElementById("inflight").textContent = JSON.stringify(state.in_flight_requests || [], null, 2);
+  const inflight = state.in_flight_requests || [];
+  document.getElementById("inflight").textContent = JSON.stringify(inflight, null, 2);
+  const ul = document.getElementById("inflight_list");
+  ul.innerHTML = inflight.length
+    ? inflight.map(r => `<li>步骤: ${r.step}｜开始: ${r.started_at}</li>`).join("")
+    : `<li>当前无进行中请求</li>`;
   document.getElementById("logs").textContent = JSON.stringify(state.llm_logs, null, 2);
 }
 
