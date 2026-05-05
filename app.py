@@ -11,7 +11,7 @@ from typing import Dict, List
 
 from flask import Flask, jsonify, request, send_from_directory
 
-app = Flask(__name__, static_folder="frontend", static_url_path="")
+app = Flask(__name__, static_folder="frontend", static_url_path="/static")
 
 BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
