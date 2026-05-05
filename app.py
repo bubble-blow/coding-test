@@ -335,6 +335,19 @@ def preview(subpath: str):
     return send_from_directory(DEPLOY_DIR, subpath)
 
 
+@app.get("/<path:req_path>")
+def serve_deployed_or_frontend(req_path: str):
+    deployed = DEPLOY_DIR / req_path
+    if deployed.is_file():
+        return send_from_directory(DEPLOY_DIR, req_path)
+    if deployed.is_dir() and (deployed / "index.html").exists():
+        return send_from_directory(deployed, "index.html")
+    frontend_file = BASE_DIR / "frontend" / req_path
+    if frontend_file.is_file():
+        return send_from_directory(BASE_DIR / "frontend", req_path)
+    return app.send_static_file("index.html")
+
+
 if __name__ == "__main__":
     ensure_dirs()
     app.run(host="0.0.0.0", port=8000, debug=True)
