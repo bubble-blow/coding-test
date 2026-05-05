@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Coding 开发平台</title>
+  <link rel="stylesheet" href="/web/style.css" />
+</head>
+<body>
+  <h1>AI Coding 开发平台</h1>
+
+  <section class="card">
+    <h2>LLM API 配置</h2>
+    <div class="grid">
+      <input id="baseUrl" placeholder="Base URL (e.g. https://api.openai.com/v1)" />
+      <input id="apiKey" placeholder="API Key" type="password" />
+      <input id="model" placeholder="Model" />
+      <button onclick="saveConfig()">保存配置</button>
+    </div>
+  </section>
+
+  <section id="pipeline"></section>
+
+  <section class="card">
+    <h2>LLM API 监控</h2>
+    <pre id="monitor"></pre>
+  </section>
+
+  <script src="/web/app.js"></script>
+</body>
+</html>

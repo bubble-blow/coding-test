@@ -1,0 +1,9 @@
+body { font-family: Arial, sans-serif; margin: 20px; background: #f6f7fb; }
+h1 { margin-bottom: 16px; }
+.card { background: #fff; border-radius: 10px; padding: 14px; margin: 12px 0; box-shadow: 0 1px 4px #0001; }
+.grid { display: grid; gap: 8px; grid-template-columns: 1fr 1fr 1fr auto; }
+.step { background: #fff; padding: 12px; border-radius: 10px; margin: 12px 0; }
+textarea { width: 100%; min-height: 100px; }
+button { margin-right: 6px; }
+.version { border: 1px solid #ddd; padding: 8px; margin: 8px 0; border-radius: 8px; background: #fafafa; }
+pre { white-space: pre-wrap; word-wrap: break-word; }
