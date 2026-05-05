@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
+import requests
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -80,18 +81,43 @@ def next_version_id(step: str, versions: List[Dict]) -> str:
     return f"{step}-v{len(versions) + 1}"
 
 
-def fake_llm_call(step: str, input_text: str) -> str:
-    # 可替换为真实 LLM 调用
-    if step == "coding":
-        return """```file:src/main.js
-export function hello() {
-  console.log('hello from generated code');
-}
-```
-```file:src/index.html
-<!doctype html><html><body><h1>Generated</h1></body></html>
-```"""
-    return f"# {step} 输出\n\n系统提示：{PROMPTS.get(step, '')}\n\n输入摘要：\n{input_text[:500]}"
+def call_llm(state: Dict, step: str, input_text: str) -> str:
+    cfg = state.get("llm_config", {})
+    base_url = (cfg.get("base_url") or "").rstrip("/")
+    api_key = cfg.get("api_key") or ""
+    model = cfg.get("model") or ""
+
+    if not base_url or not api_key or not model:
+        raise ValueError("LLM 配置不完整，请先配置 base_url / api_key / model")
+
+    system_prompt = (
+        "你是AI Coding平台中的步骤执行助手。"
+        f"当前步骤：{step}。输出要求：{PROMPTS.get(step, '')}。"
+        "请严格按要求输出完整内容，不要省略。"
+    )
+
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": input_text},
+        ],
+        "temperature": 0.2,
+    }
+
+    url = f"{base_url}/chat/completions"
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    resp = requests.post(url, headers=headers, json=payload, timeout=180)
+    resp.raise_for_status()
+    data = resp.json()
+
+    choices = data.get("choices") or []
+    if not choices:
+        raise ValueError(f"LLM 返回异常: {data}")
+    content = choices[0].get("message", {}).get("content", "")
+    if not content:
+        raise ValueError(f"LLM 返回空内容: {data}")
+    return content
 
 
 def parse_code_blocks(content: str) -> Dict[str, str]:
@@ -146,7 +172,12 @@ def api_execute(step: str):
         input_text += "\n\n## 架构设计\n" + selected_content(state, "architecture")
         input_text += "\n\n## 现有代码\n" + build_all_code_markdown()
 
-    output = fake_llm_call(step, input_text)
+    try:
+        output = call_llm(state, step, input_text)
+    except Exception as e:
+        state["llm_logs"].append({"step": step, "time": now_str(), "model": state["llm_config"].get("model", ""), "status": f"error: {e}"})
+        save_state(state)
+        return jsonify({"error": str(e)}), 400
     versions = state["steps"][step]
     vid = next_version_id(step, versions)
     version = VersionRecord(id=vid, created_at=now_str(), content=output).__dict__
