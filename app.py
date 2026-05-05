@@ -56,6 +56,7 @@ def ensure_dirs() -> None:
                 "base_url": "",
                 "api_key": "",
                 "model": "",
+                "max_tokens": 8192,
             },
             "steps": {k: [] for k in PIPELINE_STEPS},
             "selected": {k: None for k in PIPELINE_STEPS},
@@ -96,28 +97,46 @@ def call_llm(state: Dict, step: str, input_text: str) -> str:
         "请严格按要求输出完整内容，不要省略。"
     )
 
-    payload = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": input_text},
-        ],
-        "temperature": 0.2,
-    }
-
     url = f"{base_url}/chat/completions"
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    resp = requests.post(url, headers=headers, json=payload, timeout=180)
-    resp.raise_for_status()
-    data = resp.json()
 
-    choices = data.get("choices") or []
-    if not choices:
-        raise ValueError(f"LLM 返回异常: {data}")
-    content = choices[0].get("message", {}).get("content", "")
-    if not content:
-        raise ValueError(f"LLM 返回空内容: {data}")
-    return content
+    max_tokens = int(cfg.get("max_tokens") or 8192)
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": input_text},
+    ]
+
+    chunks = []
+    for _ in range(6):
+        payload = {
+            "model": model,
+            "messages": messages,
+            "temperature": 0.2,
+            "max_tokens": max_tokens,
+        }
+        resp = requests.post(url, headers=headers, json=payload, timeout=180)
+        resp.raise_for_status()
+        data = resp.json()
+
+        choices = data.get("choices") or []
+        if not choices:
+            raise ValueError(f"LLM 返回异常: {data}")
+        choice = choices[0]
+        content = choice.get("message", {}).get("content", "")
+        if not content:
+            raise ValueError(f"LLM 返回空内容: {data}")
+        chunks.append(content)
+        finish_reason = choice.get("finish_reason")
+        if finish_reason != "length":
+            break
+
+        messages.append({"role": "assistant", "content": content})
+        messages.append({
+            "role": "user",
+            "content": "你上一条输出被长度限制截断了。请从上次中断的位置继续，仅输出剩余内容，不要重复。",
+        })
+
+    return "\n".join(chunks)
 
 
 def parse_code_blocks(content: str) -> Dict[str, str]:

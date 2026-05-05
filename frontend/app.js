@@ -52,7 +52,8 @@ function renderStep(step) {
 async function refresh() { state = await api('/api/state'); render(); }
 async function saveConfig() {
   await api('/api/config', 'POST', {
-    base_url: base_url.value, api_key: api_key.value, model: model.value
+    base_url: base_url.value, api_key: api_key.value, model: model.value,
+    max_tokens: Number(max_tokens.value || 8192)
   });
   await refresh();
 }

@@ -25,3 +25,5 @@ python app.py
 - `api_key`：接口密钥
 - `model`：模型名（示例：`gpt-4.1-mini`）
 - 执行步骤时会调用 `POST {base_url}/chat/completions`。
+
+- 若代码生成较长，建议提高 `max_tokens`（如 8192 或更高，取决于模型上限）以减少截断。
