@@ -48,7 +48,7 @@ function renderStep(step) {
   const box = document.getElementById(`out-${step}`);
   const list = state.steps[step] || [];
   box.innerHTML = list.map(v => `<div class="version-item"><small>${v.id} ${v.created_at}</small>
-  <textarea onchange="modify('${step}','${v.id}',this.value)">${v.content}</textarea>
+  <textarea class="output-textarea" onchange="modify('${step}','${v.id}',this.value)">${v.content}</textarea>
   <div>
     <button class="action-btn" onclick="selectVer('${step}','${v.id}')">选定</button>
     <button class="action-btn" onclick="requireModify('${step}','${v.id}')">要求修改</button>

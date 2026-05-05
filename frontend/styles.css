@@ -46,3 +46,5 @@ body.page-root {
 .floating-list { margin: 0; padding-left: 18px; }
 
 .monitor-block pre { white-space: pre-wrap; word-break: break-word; }
+
+.output-textarea { width: 100%; min-height: 120px; border: 1px solid var(--border); border-radius: 8px; }
