@@ -10,10 +10,21 @@ async function api(path, method = "GET", body) {
   return res.json();
 }
 
+function defaultInput(step) {
+  const idx = STEPS.indexOf(step);
+  if (idx <= 0) return "";
+  const prev = STEPS[idx - 1];
+  const selectedId = state?.selected?.[prev];
+  if (!selectedId) return "";
+  const v = (state?.steps?.[prev] || []).find(x => x.id === selectedId);
+  return v?.content || "";
+}
+
 function stepTemplate(step) {
   const inputable = !["review", "delivery"].includes(step);
+  const val = inputable ? defaultInput(step) : "";
   return `<div class="card" id="card-${step}"><h3>${step}</h3>
-    ${inputable ? `<textarea id="in-${step}" placeholder="输入"></textarea>` : `<div>无输入框（显示代码路径）</div>`}
+    ${inputable ? `<textarea id="in-${step}" placeholder="输入">${val}</textarea>` : `<div>无输入框（显示代码路径）</div>`}
     <button onclick="execute('${step}')">执行</button>
     <div class="versions" id="out-${step}"></div>
   </div>`;
@@ -58,13 +69,6 @@ async function execute(step) {
 }
 async function selectVer(step, vid) {
   await api(`/api/version/${step}/${vid}/select`, 'POST');
-  const idx = STEPS.indexOf(step);
-  if (idx >= 0 && idx < STEPS.length - 1) {
-    const next = STEPS[idx + 1];
-    const v = state.steps[step].find(x => x.id === vid);
-    const input = document.getElementById(`in-${next}`);
-    if (input && v) input.value = v.content;
-  }
   await refresh();
 }
 async function requireModify(step, vid) {
