@@ -4,24 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>AI Coding 平台</title>
+  <link rel="stylesheet" href="/styles.css" />
   <script defer src="/app.js"></script>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 16px; }
-    .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; }
-    textarea { width: 100%; min-height: 120px; }
-    .versions { max-height: 220px; overflow:auto; border:1px solid #eee; padding:8px; }
-    .v-item{ border-bottom:1px solid #eee; margin-bottom:8px; padding-bottom:8px; }
-    button{ margin-right:6px; }
-
-    .floating-inflight { position: fixed; right: 12px; bottom: 12px; width: 340px; max-height: 45vh; overflow:auto; background:#111; color:#fff; border-radius:10px; padding:10px; box-shadow:0 8px 28px rgba(0,0,0,.35); z-index: 9999; }
-    .floating-inflight h4{ margin:0 0 8px; font-size:14px; }
-    .floating-inflight ul{ margin:0; padding-left:18px; }
-  </style>
 </head>
-<body>
-  <h1>AI Coding 开发平台</h1>
-  <div class="card">
+<body class="page-root">
+  <h1 class="page-title">AI Coding 开发平台</h1>
+  <div class="panel-card">
     <h3>LLM API 配置</h3>
     <input id="base_url" placeholder="base_url" />
     <input id="api_key" placeholder="api_key" />
@@ -29,11 +17,11 @@
     <input id="max_tokens" placeholder="max_tokens(默认8192)" />
     <button onclick="saveConfig()">保存配置</button>
   </div>
-  <div class="grid" id="pipeline"></div>
-  <div class="card"><h3>LLM API 监控</h3><div><b>进行中请求</b><pre id="inflight"></pre></div><div><b>历史日志</b><pre id="logs"></pre></div></div>
+  <div class="pipeline-grid" id="pipeline"></div>
+  <div class="panel-card"><h3>LLM API 监控</h3><div><b>进行中请求</b><pre id="inflight"></pre></div><div><b>历史日志</b><pre id="logs"></pre></div></div>
   <div class="floating-inflight">
-    <h4>进行中的 LLM 请求</h4>
-    <ul id="inflight_list"></ul>
+    <h4 class="floating-title">进行中的 LLM 请求</h4>
+    <ul id="inflight_list" class="floating-list"></ul>
   </div>
 </body>
 </html>

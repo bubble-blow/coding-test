@@ -25,10 +25,10 @@ function stepTemplate(step) {
   const val = inputable ? defaultInput(step) : "";
   const codePaths = (step === "review") ? (state?.review_code_paths || []) : [];
   const deliveryPaths = (step === "delivery") ? (state?.delivery_code_paths || []) : [];
-  return `<div class="card" id="card-${step}"><h3>${step}</h3>
-    ${inputable ? `<textarea id="in-${step}" placeholder="输入">${val}</textarea>` : `<div>${step === "review" ? `代码文件路径：<pre>${codePaths.join("\n") || "(暂无)"}</pre>` : (step === "delivery" ? `待交付代码路径：<pre>${deliveryPaths.join("\n") || "(暂无)"}</pre>` : "无输入框（显示代码路径）")}</div>`}
-    <button onclick="execute('${step}')">执行</button>
-    <div class="versions" id="out-${step}"></div>
+  return `<div class="panel-card" id="card-${step}"><h3>${step}</h3>
+    ${inputable ? `<textarea class="input-textarea" id="in-${step}" placeholder="输入">${val}</textarea>` : `<div>${step === "review" ? `代码文件路径：<pre>${codePaths.join("\n") || "(暂无)"}</pre>` : (step === "delivery" ? `待交付代码路径：<pre>${deliveryPaths.join("\n") || "(暂无)"}</pre>` : "无输入框（显示代码路径）")}</div>`}
+    <button class="action-btn" onclick="execute('${step}')">执行</button>
+    <div class="version-list" id="out-${step}"></div>
   </div>`;
 }
 
@@ -47,12 +47,12 @@ function render() {
 function renderStep(step) {
   const box = document.getElementById(`out-${step}`);
   const list = state.steps[step] || [];
-  box.innerHTML = list.map(v => `<div class="v-item"><small>${v.id} ${v.created_at}</small>
+  box.innerHTML = list.map(v => `<div class="version-item"><small>${v.id} ${v.created_at}</small>
   <textarea onchange="modify('${step}','${v.id}',this.value)">${v.content}</textarea>
   <div>
-    <button onclick="selectVer('${step}','${v.id}')">选定</button>
-    <button onclick="requireModify('${step}','${v.id}')">要求修改</button>
-    <button onclick="deleteVer('${step}','${v.id}')">删除</button>
+    <button class="action-btn" onclick="selectVer('${step}','${v.id}')">选定</button>
+    <button class="action-btn" onclick="requireModify('${step}','${v.id}')">要求修改</button>
+    <button class="action-btn" onclick="deleteVer('${step}','${v.id}')">删除</button>
     ${v.preview ? `<a target="_blank" href="${v.preview}">预览</a>` : ""}
   </div></div>`).join("");
 }
