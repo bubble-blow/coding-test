@@ -24,8 +24,9 @@ function stepTemplate(step) {
   const inputable = !["review", "delivery"].includes(step);
   const val = inputable ? defaultInput(step) : "";
   const codePaths = (step === "review") ? (state?.review_code_paths || []) : [];
+  const deliveryPaths = (step === "delivery") ? (state?.delivery_code_paths || []) : [];
   return `<div class="card" id="card-${step}"><h3>${step}</h3>
-    ${inputable ? `<textarea id="in-${step}" placeholder="输入">${val}</textarea>` : `<div>${step === "review" ? `代码文件路径：<pre>${codePaths.join("\n") || "(暂无)"}</pre>` : "无输入框（显示代码路径）"}</div>`}
+    ${inputable ? `<textarea id="in-${step}" placeholder="输入">${val}</textarea>` : `<div>${step === "review" ? `代码文件路径：<pre>${codePaths.join("\n") || "(暂无)"}</pre>` : (step === "delivery" ? `待交付代码路径：<pre>${deliveryPaths.join("\n") || "(暂无)"}</pre>` : "无输入框（显示代码路径）")}</div>`}
     <button onclick="execute('${step}')">执行</button>
     <div class="versions" id="out-${step}"></div>
   </div>`;

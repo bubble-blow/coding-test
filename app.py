@@ -61,6 +61,7 @@ def ensure_dirs() -> None:
             "steps": {k: [] for k in PIPELINE_STEPS},
             "selected": {k: None for k in PIPELINE_STEPS},
             "llm_logs": [],
+            "delivery_code_paths": [],
         }
         STATE_FILE.write_text(json.dumps(init_state, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -175,7 +176,10 @@ def index():
 @app.get("/api/state")
 def api_state():
     state = load_state()
-    state["review_code_paths"] = list_code_paths(state.get("selected", {}).get("coding"))
+    code_paths = list_code_paths(state.get("selected", {}).get("coding"))
+    state["review_code_paths"] = code_paths
+    if not state.get("delivery_code_paths"):
+        state["delivery_code_paths"] = code_paths
     return jsonify(state)
 
 
@@ -263,6 +267,8 @@ def api_select(step: str, vid: str):
     for v in state["steps"].get(step, []):
         v["selected"] = v["id"] == vid
     state["selected"][step] = vid
+    if step == "review":
+        state["delivery_code_paths"] = list_code_paths(state.get("selected", {}).get("coding"))
     save_state(state)
     return jsonify({"ok": True})
 
