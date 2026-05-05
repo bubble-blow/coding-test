@@ -244,6 +244,18 @@ def build_all_code_markdown() -> str:
     return "\n\n".join(sections)
 
 
+
+
+def copy_dir_merge(src: Path, dst: Path) -> None:
+    dst.mkdir(parents=True, exist_ok=True)
+    for item in src.iterdir():
+        target = dst / item.name
+        if item.is_dir():
+            copy_dir_merge(item, target)
+        else:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(item, target)
+
 def save_code_version(vid: str, output: str, state: Dict) -> None:
     files = parse_code_blocks(output)
     target = CODE_DIR / vid
@@ -253,7 +265,7 @@ def save_code_version(vid: str, output: str, state: Dict) -> None:
     if prev:
         prev_dir = CODE_DIR / prev
         if prev_dir.exists():
-            shutil.copytree(prev_dir, target, dirs_exist_ok=True)
+            copy_dir_merge(prev_dir, target)
 
     for path, content in files.items():
         fp = target / path
@@ -303,7 +315,7 @@ def handle_delivery(state: Dict, payload: Dict):
 
     src = CODE_DIR / code_version
     dst = DEPLOY_DIR / target_url
-    shutil.copytree(src, dst, dirs_exist_ok=True)
+    copy_dir_merge(src, dst)
 
     entry = {
         "id": next_version_id("delivery", state["steps"]["delivery"]),
