@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AI Coding 平台</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <script defer src="/app.js"></script>
+</head>
+<body class="page-root">
+  <h1 class="page-title">AI Coding 开发平台</h1>
+  <div class="panel-card">
+    <h3>LLM API 配置</h3>
+    <input id="base_url" placeholder="base_url" />
+    <input id="api_key" placeholder="api_key" />
+    <input id="model" placeholder="model" />
+    <input id="max_tokens" placeholder="max_tokens(默认8192)" />
+    <button onclick="saveConfig()">保存配置</button>
+  </div>
+  <div class="pipeline-grid" id="pipeline"></div>
+  <div class="panel-card"><h3>LLM API 监控</h3><div><b>进行中请求</b><pre id="inflight"></pre></div><div><b>历史日志</b><pre id="logs"></pre></div></div>
+  <div class="floating-inflight">
+    <h4 class="floating-title">进行中的 LLM 请求</h4>
+    <ul id="inflight_list" class="floating-list"></ul>
+  </div>
+</body>
+</html>
