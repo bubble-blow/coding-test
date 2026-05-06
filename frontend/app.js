@@ -42,6 +42,55 @@ function render() {
     ? inflight.map(r => `<li>步骤: ${r.step}｜开始: ${r.started_at}</li>`).join("")
     : `<li>当前无进行中请求</li>`;
   document.getElementById("logs").textContent = JSON.stringify(state.llm_logs, null, 2);
+  renderObservability();
+}
+
+function fmtMs(ms) {
+  if (!ms) return "0 ms";
+  if (ms < 1000) return `${ms} ms`;
+  return `${(ms / 1000).toFixed(1)} s`;
+}
+
+function fmtRate(rate) {
+  return `${Math.round((rate || 0) * 100)}%`;
+}
+
+function renderObservability() {
+  const obs = state.observability || {};
+  const totals = obs.totals || {};
+  document.getElementById("metrics").innerHTML = [
+    ["运行次数", totals.runs || 0],
+    ["成功率", fmtRate(totals.success_rate)],
+    ["平均耗时", fmtMs(totals.avg_duration_ms || 0)],
+    ["Token 总量", totals.tokens || 0],
+  ].map(([label, value]) => `<div class="metric-card"><span>${label}</span><strong>${value}</strong></div>`).join("");
+
+  const byStep = obs.by_step || {};
+  const rows = Object.keys(byStep).map(step => {
+    const item = byStep[step];
+    return `<tr>
+      <td>${step}</td>
+      <td>${item.runs}</td>
+      <td>${fmtRate(item.success_rate)}</td>
+      <td>${fmtMs(item.avg_duration_ms)}</td>
+      <td>${item.tokens}</td>
+    </tr>`;
+  }).join("");
+  document.getElementById("step_metrics").innerHTML = rows
+    ? `<table><thead><tr><th>阶段</th><th>次数</th><th>成功率</th><th>平均耗时</th><th>Token</th></tr></thead><tbody>${rows}</tbody></table>`
+    : `<div class="empty-text">暂无运行数据</div>`;
+
+  const recent = (obs.recent_runs || []).slice().reverse();
+  document.getElementById("recent_runs").innerHTML = recent.length
+    ? `<table><thead><tr><th>阶段</th><th>模式</th><th>状态</th><th>耗时</th><th>版本</th><th>Token</th></tr></thead><tbody>${recent.map(r => `<tr>
+      <td>${r.step}</td>
+      <td>${r.mode || "manual"}</td>
+      <td>${r.status}</td>
+      <td>${fmtMs(r.duration_ms)}</td>
+      <td>${r.version_id || "-"}</td>
+      <td>${r.usage?.total_tokens || 0}</td>
+    </tr>`).join("")}</tbody></table>`
+    : `<div class="empty-text">暂无运行记录</div>`;
 }
 
 function renderStep(step) {
@@ -83,6 +132,20 @@ async function execute(step) {
   const req = api(`/api/execute/${step}`, 'POST', { input });
   setTimeout(() => { refresh(); }, 50);
   await req;
+  await refresh();
+}
+async function autoRegression() {
+  const input = auto_input.value || "";
+  if (!input.trim()) {
+    auto_result.textContent = "请先输入本轮编码目标";
+    return;
+  }
+  const max_retries = Number(auto_retries.value || 2);
+  auto_result.textContent = "自动回归执行中...";
+  const req = api('/api/auto-regression', 'POST', { input, max_retries });
+  setTimeout(() => { refresh(); }, 50);
+  const result = await req;
+  auto_result.textContent = JSON.stringify(result, null, 2);
   await refresh();
 }
 async function selectVer(step, vid) {

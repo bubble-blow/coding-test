@@ -7,6 +7,7 @@ import requests
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from time import perf_counter
 from typing import Dict, List
 import uuid
 
@@ -64,6 +65,7 @@ def ensure_dirs() -> None:
             "steps": {k: [] for k in PIPELINE_STEPS},
             "selected": {k: None for k in PIPELINE_STEPS},
             "llm_logs": [],
+            "pipeline_runs": [],
             "delivery_code_paths": [],
         }
         STATE_FILE.write_text(json.dumps(init_state, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -71,7 +73,17 @@ def ensure_dirs() -> None:
 
 def load_state() -> Dict:
     ensure_dirs()
-    return json.loads(STATE_FILE.read_text(encoding="utf-8"))
+    state = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+    state.setdefault("llm_config", {"base_url": "", "api_key": "", "model": "", "max_tokens": 8192})
+    state.setdefault("steps", {k: [] for k in PIPELINE_STEPS})
+    state.setdefault("selected", {k: None for k in PIPELINE_STEPS})
+    state.setdefault("llm_logs", [])
+    state.setdefault("pipeline_runs", [])
+    state.setdefault("delivery_code_paths", [])
+    for step in PIPELINE_STEPS:
+        state["steps"].setdefault(step, [])
+        state["selected"].setdefault(step, None)
+    return state
 
 
 def save_state(state: Dict) -> None:
@@ -86,7 +98,18 @@ def next_version_id(step: str, versions: List[Dict]) -> str:
     return f"{step}-v{len(versions) + 1}"
 
 
-def call_llm(state: Dict, step: str, input_text: str) -> str:
+def empty_usage() -> Dict:
+    return {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+
+
+def add_usage(total: Dict, usage: Dict | None) -> None:
+    if not usage:
+        return
+    for key in ["prompt_tokens", "completion_tokens", "total_tokens"]:
+        total[key] = int(total.get(key, 0) or 0) + int(usage.get(key, 0) or 0)
+
+
+def call_llm(state: Dict, step: str, input_text: str) -> Dict:
     cfg = state.get("llm_config", {})
     base_url = (cfg.get("base_url") or "").rstrip("/")
     api_key = cfg.get("api_key") or ""
@@ -111,6 +134,8 @@ def call_llm(state: Dict, step: str, input_text: str) -> str:
     ]
 
     chunks = []
+    total_usage = empty_usage()
+    finish_reason = None
     for _ in range(6):
         payload = {
             "model": model,
@@ -131,6 +156,7 @@ def call_llm(state: Dict, step: str, input_text: str) -> str:
             raise ValueError(f"LLM 返回空内容: {data}")
         chunks.append(content)
         finish_reason = choice.get("finish_reason")
+        add_usage(total_usage, data.get("usage"))
         if finish_reason != "length":
             break
 
@@ -140,7 +166,12 @@ def call_llm(state: Dict, step: str, input_text: str) -> str:
             "content": "你上一条输出被长度限制截断了。请从上次中断的位置继续，仅输出剩余内容，不要重复。",
         })
 
-    return "\n".join(chunks)
+    return {
+        "content": "\n".join(chunks),
+        "usage": total_usage,
+        "chunks": len(chunks),
+        "finish_reason": finish_reason,
+    }
 
 
 def parse_code_blocks(content: str) -> Dict[str, str]:
@@ -171,6 +202,186 @@ def selected_content(state: Dict, step: str) -> str:
     return ""
 
 
+def prepare_step_input(state: Dict, step: str, input_text: str) -> str:
+    if step in ["coding", "review"]:
+        input_text += "\n\n## 方案设计\n" + selected_content(state, "solution")
+        input_text += "\n\n## 架构设计\n" + selected_content(state, "architecture")
+        input_text += "\n\n## 现有代码\n" + build_code_markdown(state.get("selected", {}).get("coding"))
+    return input_text
+
+
+def append_run_log(
+    state: Dict,
+    *,
+    run_id: str,
+    step: str,
+    started_at: str,
+    ended_at: str,
+    duration_ms: int,
+    status: str,
+    usage: Dict | None = None,
+    version_id: str | None = None,
+    error: str | None = None,
+    attempt: int | None = None,
+    mode: str = "manual",
+) -> None:
+    entry = {
+        "id": run_id,
+        "step": step,
+        "mode": mode,
+        "started_at": started_at,
+        "ended_at": ended_at,
+        "duration_ms": duration_ms,
+        "status": status,
+        "model": state["llm_config"].get("model", ""),
+        "usage": usage or empty_usage(),
+    }
+    if version_id:
+        entry["version_id"] = version_id
+    if error:
+        entry["error"] = error
+    if attempt is not None:
+        entry["attempt"] = attempt
+    state["pipeline_runs"].append(entry)
+    state["pipeline_runs"] = state["pipeline_runs"][-200:]
+    state["llm_logs"].append({
+        "step": step,
+        "time": ended_at,
+        "model": state["llm_config"].get("model", ""),
+        "status": "ok" if status == "ok" else f"error: {error}",
+        "duration_ms": duration_ms,
+        "usage": usage or empty_usage(),
+    })
+    state["llm_logs"] = state["llm_logs"][-200:]
+
+
+def select_version_in_state(state: Dict, step: str, vid: str) -> None:
+    for v in state["steps"].get(step, []):
+        v["selected"] = v["id"] == vid
+    state["selected"][step] = vid
+    if step == "review":
+        state["delivery_code_paths"] = list_code_paths(state.get("selected", {}).get("coding"))
+
+
+def persist_step_output(state: Dict, step: str, vid: str, output: str) -> None:
+    if step in ["requirements", "solution", "architecture"]:
+        step_dir = DOCS_DIR / step / vid
+        step_dir.mkdir(parents=True, exist_ok=True)
+        (step_dir / f"{step}.md").write_text(output, encoding="utf-8")
+
+    if step == "coding":
+        save_code_version(vid, output, state)
+
+
+def execute_step_core(
+    state: Dict,
+    step: str,
+    input_text: str,
+    *,
+    mode: str = "manual",
+    attempt: int | None = None,
+    auto_select: bool = False,
+) -> Dict:
+    req_id = str(uuid.uuid4())
+    started_at = now_str()
+    started_perf = perf_counter()
+    IN_FLIGHT_REQUESTS[req_id] = {
+        "id": req_id,
+        "step": step,
+        "mode": mode,
+        "started_at": started_at,
+        "attempt": attempt,
+    }
+    try:
+        llm_result = call_llm(state, step, prepare_step_input(state, step, input_text))
+        output = llm_result["content"]
+        versions = state["steps"][step]
+        vid = next_version_id(step, versions)
+        version = VersionRecord(id=vid, created_at=now_str(), content=output).__dict__
+        versions.append(version)
+        persist_step_output(state, step, vid, output)
+        if auto_select:
+            select_version_in_state(state, step, vid)
+            version["selected"] = True
+
+        ended_at = now_str()
+        duration_ms = int((perf_counter() - started_perf) * 1000)
+        append_run_log(
+            state,
+            run_id=req_id,
+            step=step,
+            started_at=started_at,
+            ended_at=ended_at,
+            duration_ms=duration_ms,
+            status="ok",
+            usage=llm_result["usage"],
+            version_id=vid,
+            attempt=attempt,
+            mode=mode,
+        )
+        return {"version": version, "llm": llm_result}
+    except Exception as e:
+        ended_at = now_str()
+        duration_ms = int((perf_counter() - started_perf) * 1000)
+        append_run_log(
+            state,
+            run_id=req_id,
+            step=step,
+            started_at=started_at,
+            ended_at=ended_at,
+            duration_ms=duration_ms,
+            status="error",
+            error=str(e),
+            attempt=attempt,
+            mode=mode,
+        )
+        raise
+    finally:
+        IN_FLIGHT_REQUESTS.pop(req_id, None)
+
+
+def review_passed(review_text: str) -> bool:
+    text = review_text.lower()
+    first_lines = "\n".join(review_text.strip().splitlines()[:5])
+    if re.search(r"结论\s*[:：]\s*PASS\b", first_lines, re.IGNORECASE):
+        return True
+    if re.search(r"结论\s*[:：]\s*FAIL\b", first_lines, re.IGNORECASE):
+        return False
+
+    fail_markers = ["必改", "阻塞上线", "严重", "语法错误", "无法运行", "未实现"]
+    pass_markers = ["未发现问题", "无明显问题", "可以通过", "通过评审", "无阻塞问题", "没有发现"]
+    if any(marker in review_text for marker in fail_markers) or "fatal error" in text:
+        return False
+    return any(marker in review_text for marker in pass_markers)
+
+
+def build_observability(state: Dict) -> Dict:
+    runs = state.get("pipeline_runs", [])
+    by_step = {}
+    totals = {"runs": len(runs), "success": 0, "failed": 0, "duration_ms": 0, "tokens": 0}
+    for run in runs:
+        step = run.get("step", "")
+        item = by_step.setdefault(step, {"runs": 0, "success": 0, "failed": 0, "duration_ms": 0, "tokens": 0})
+        item["runs"] += 1
+        totals["duration_ms"] += int(run.get("duration_ms", 0) or 0)
+        item["duration_ms"] += int(run.get("duration_ms", 0) or 0)
+        tokens = int((run.get("usage") or {}).get("total_tokens", 0) or 0)
+        totals["tokens"] += tokens
+        item["tokens"] += tokens
+        if run.get("status") == "ok":
+            totals["success"] += 1
+            item["success"] += 1
+        else:
+            totals["failed"] += 1
+            item["failed"] += 1
+    for item in by_step.values():
+        item["avg_duration_ms"] = int(item["duration_ms"] / item["runs"]) if item["runs"] else 0
+        item["success_rate"] = round(item["success"] / item["runs"], 3) if item["runs"] else 0
+    totals["avg_duration_ms"] = int(totals["duration_ms"] / totals["runs"]) if totals["runs"] else 0
+    totals["success_rate"] = round(totals["success"] / totals["runs"], 3) if totals["runs"] else 0
+    return {"totals": totals, "by_step": by_step, "recent_runs": runs[-20:]}
+
+
 @app.get("/")
 def index():
     return app.send_static_file("index.html")
@@ -184,6 +395,7 @@ def api_state():
     if not state.get("delivery_code_paths"):
         state["delivery_code_paths"] = code_paths
     state["in_flight_requests"] = list(IN_FLIGHT_REQUESTS.values())
+    state["observability"] = build_observability(state)
     return jsonify(state)
 
 
@@ -205,50 +417,96 @@ def api_execute(step: str):
     if step == "delivery":
         return handle_delivery(state, payload)
 
-    input_text = payload.get("input", "")
-    if step in ["coding", "review"]:
-        input_text += "\n\n## 方案设计\n" + selected_content(state, "solution")
-        input_text += "\n\n## 架构设计\n" + selected_content(state, "architecture")
-        input_text += "\n\n## 现有代码\n" + build_all_code_markdown()
-
-    req_id = str(uuid.uuid4())
-    IN_FLIGHT_REQUESTS[req_id] = {"id": req_id, "step": step, "started_at": now_str()}
     try:
-        output = call_llm(state, step, input_text)
+        result = execute_step_core(state, step, payload.get("input", ""))
     except Exception as e:
-        state["llm_logs"].append({"step": step, "time": now_str(), "model": state["llm_config"].get("model", ""), "status": f"error: {e}"})
         save_state(state)
         return jsonify({"error": str(e)}), 400
-    finally:
-        IN_FLIGHT_REQUESTS.pop(req_id, None)
-    versions = state["steps"][step]
-    vid = next_version_id(step, versions)
-    version = VersionRecord(id=vid, created_at=now_str(), content=output).__dict__
-    versions.append(version)
-
-    if step in ["requirements", "solution", "architecture"]:
-        step_dir = DOCS_DIR / step / vid
-        step_dir.mkdir(parents=True, exist_ok=True)
-        (step_dir / f"{step}.md").write_text(output, encoding="utf-8")
-
-    if step == "coding":
-        save_code_version(vid, output, state)
-
-    state["llm_logs"].append(
-        {"step": step, "time": now_str(), "model": state["llm_config"].get("model", ""), "status": "ok"}
-    )
     save_state(state)
-    return jsonify({"ok": True, "version": version})
+    return jsonify({"ok": True, "version": result["version"], "usage": result["llm"]["usage"]})
 
 
-def build_all_code_markdown() -> str:
-    if not CODE_DIR.exists():
+@app.post("/api/auto-regression")
+def api_auto_regression():
+    state = load_state()
+    payload = request.json or {}
+    base_input = payload.get("input", "")
+    max_retries = max(0, min(int(payload.get("max_retries", 2) or 0), 5))
+    history = []
+    next_input = base_input
+
+    for attempt in range(1, max_retries + 2):
+        try:
+            coding_result = execute_step_core(
+                state,
+                "coding",
+                next_input,
+                mode="auto_regression",
+                attempt=attempt,
+                auto_select=True,
+            )
+            review_input = (
+                "请评审当前选中的代码版本。"
+                "请在评审结果第一行严格输出“结论: PASS”或“结论: FAIL”。"
+                "只有存在阻塞上线的问题时才输出“结论: FAIL”；"
+                "非阻塞优化建议、代码风格建议、可后续迭代的问题不影响通过。"
+                "如果输出“结论: FAIL”，请按必改问题列出可操作的修改建议；"
+                "如果输出“结论: PASS”，可以继续列出非阻塞优化建议。"
+            )
+            review_result = execute_step_core(
+                state,
+                "review",
+                review_input,
+                mode="auto_regression",
+                attempt=attempt,
+                auto_select=True,
+            )
+        except Exception as e:
+            save_state(state)
+            return jsonify({"error": str(e), "history": history}), 400
+
+        review_text = review_result["version"]["content"]
+        passed = review_passed(review_text)
+        item = {
+            "attempt": attempt,
+            "coding_version": coding_result["version"]["id"],
+            "review_version": review_result["version"]["id"],
+            "passed": passed,
+        }
+        history.append(item)
+        if passed:
+            save_state(state)
+            return jsonify({"ok": True, "passed": True, "attempts": attempt, "history": history})
+
+        next_input = (
+            f"{base_input}\n\n"
+            f"## 自动回归第 {attempt} 轮评审反馈\n"
+            f"{review_text}\n\n"
+            "请修复以上评审指出的问题，保留未受影响的文件，并继续按 ```file:path/to/file``` 格式输出完整代码文件。"
+        )
+
+    save_state(state)
+    return jsonify({"ok": True, "passed": False, "attempts": max_retries + 1, "history": history})
+
+
+def build_code_markdown(version_id: str | None) -> str:
+    if not version_id:
+        return ""
+    root = CODE_DIR / version_id
+    if not root.exists():
         return ""
     sections = []
-    for f in sorted(CODE_DIR.glob("**/*")):
+    skip_suffixes = {".pyc", ".pyo", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".zip", ".gz"}
+    for f in sorted(root.glob("**/*")):
         if f.is_file():
-            rel = f.relative_to(CODE_DIR)
-            sections.append(f"### {rel}\n```\n{f.read_text(encoding='utf-8')}\n```")
+            rel = f.relative_to(root)
+            if "__pycache__" in rel.parts or f.suffix.lower() in skip_suffixes:
+                continue
+            try:
+                content = f.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                continue
+            sections.append(f"### {rel}\n```\n{content}\n```")
     return "\n\n".join(sections)
 
 
@@ -284,11 +542,7 @@ def save_code_version(vid: str, output: str, state: Dict) -> None:
 @app.post("/api/version/<step>/<vid>/select")
 def api_select(step: str, vid: str):
     state = load_state()
-    for v in state["steps"].get(step, []):
-        v["selected"] = v["id"] == vid
-    state["selected"][step] = vid
-    if step == "review":
-        state["delivery_code_paths"] = list_code_paths(state.get("selected", {}).get("coding"))
+    select_version_in_state(state, step, vid)
     save_state(state)
     return jsonify({"ok": True})
 
