@@ -96,13 +96,24 @@ function renderObservability() {
 function renderStep(step) {
   const box = document.getElementById(`out-${step}`);
   const list = state.steps[step] || [];
+  const buildDebugPreviewUrl = (previewUrl) => {
+    try {
+      const u = new URL(previewUrl, window.location.origin);
+      u.searchParams.set("inspect", "1");
+      return `${u.pathname}${u.search}${u.hash || ""}`;
+    } catch (_) {
+      const joiner = previewUrl.includes("?") ? "&" : "?";
+      return `${previewUrl}${joiner}inspect=1`;
+    }
+  };
   box.innerHTML = list.map(v => `<div class="version-item"><small>${v.id} ${v.created_at}</small>
   <textarea class="output-textarea" onchange="modify('${step}','${v.id}',this.value)">${v.content}</textarea>
   <div>
     <button class="action-btn" onclick="selectVer('${step}','${v.id}')">选定</button>
     <button class="action-btn" onclick="requireModify('${step}','${v.id}')">要求修改</button>
     <button class="action-btn" onclick="deleteVer('${step}','${v.id}')">删除</button>
-    ${v.preview ? `<a target="_blank" href="${v.preview}">预览</a>` : ""}
+    ${v.preview ? `<a target="_blank" href="${v.preview}">预览</a>
+    <a target="_blank" href="${buildDebugPreviewUrl(v.preview)}">调试预览</a>` : ""}
   </div></div>`).join("");
 }
 
