@@ -182,6 +182,19 @@ def parse_code_blocks(content: str) -> Dict[str, str]:
     return files
 
 
+def inject_inspect_js(html: str) -> str:
+    script_tag = '<script src="/plugin/inspect-inject.js"></script>'
+    if script_tag in html:
+        return html
+    if "</body>" in html:
+        return html.replace("</body>", f"{script_tag}</body>")
+    return html + script_tag
+
+
+def should_inject_inspect() -> bool:
+    return (request.args.get("inspect") or "").lower() in {"1", "true", "yes", "on"}
+
+
 
 
 def list_code_paths(version_id: str | None) -> List[str]:
@@ -592,6 +605,71 @@ def handle_delivery(state: Dict, payload: Dict):
     return jsonify({"ok": True, "version": entry})
 
 
+def collect_code_files(root: Path) -> str:
+    sections = []
+    skip_suffixes = {".pyc", ".pyo", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".zip", ".gz", ".pdf", ".woff", ".woff2"}
+    for f in sorted(root.glob("**/*")):
+        if not f.is_file():
+            continue
+        if "__pycache__" in f.parts or f.suffix.lower() in skip_suffixes:
+            continue
+        try:
+            content = f.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        sections.append(f"### {f.relative_to(root)}\n```\\n{content}\\n```")
+    return "\\n\\n".join(sections)
+
+
+@app.post("/api/preview-modify")
+def api_preview_modify():
+    state = load_state()
+    body = request.json or {}
+    page_url = (body.get("page_url") or "").strip("/")
+    suggestion = body.get("suggestion", "")
+    selector = body.get("element_selector", "")
+    own_text = body.get("element_own_text", "")
+    if not page_url:
+        return jsonify({"error": "缺少 page_url"}), 400
+
+    target_path = DEPLOY_DIR / page_url
+    if target_path.is_file():
+        target_root = target_path.parent
+        target_rel = page_url.rsplit("/", 1)[0] if "/" in page_url else ""
+    else:
+        target_root = target_path
+        target_rel = page_url
+    if not target_root.exists():
+        return jsonify({"error": "页面路径不存在"}), 400
+
+    prompt = (
+        f"你需要按如下输出要求完成代码修改：{PROMPTS['coding']}\\n\\n"
+        f"页面URL路径: /{page_url}\\n"
+        f"目标元素选择器: {selector}\\n"
+        f"目标元素标签内容(不含子元素): {own_text}\\n"
+        f"用户修改意见: {suggestion}\\n\\n"
+        "以下是当前路径下的全部代码文件：\\n"
+        f"{collect_code_files(target_root)}\\n\\n"
+        "请只输出需要修改后的代码文件，使用 ```file:path``` 包裹。"
+    )
+    try:
+        llm_result = call_llm(state, "coding", prompt)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    files = parse_code_blocks(llm_result["content"])
+    if not files:
+        return jsonify({"error": "LLM 未返回有效代码块"}), 400
+
+    new_rel = (target_rel + "/" if target_rel else "") + f"_edited_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+    new_root = DEPLOY_DIR / new_rel
+    copy_dir_merge(target_root, new_root)
+    for path, content in files.items():
+        out = new_root / path
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(content, encoding="utf-8")
+    return jsonify({"ok": True, "preview_url": f"/{new_rel}/?inspect=1"})
+
+
 @app.get("/preview/<path:subpath>")
 def preview(subpath: str):
     return send_from_directory(DEPLOY_DIR, subpath)
@@ -601,9 +679,17 @@ def preview(subpath: str):
 def serve_deployed_or_frontend(req_path: str):
     deployed = DEPLOY_DIR / req_path
     if deployed.is_file():
+        if should_inject_inspect() and deployed.suffix.lower() in {".html", ".htm"}:
+            return inject_inspect_js(deployed.read_text(encoding="utf-8"))
         return send_from_directory(DEPLOY_DIR, req_path)
     if deployed.is_dir() and (deployed / "index.html").exists():
+        if should_inject_inspect():
+            return inject_inspect_js((deployed / "index.html").read_text(encoding="utf-8"))
         return send_from_directory(deployed, "index.html")
+    if req_path.startswith("plugin/"):
+        plugin_file = BASE_DIR / req_path
+        if plugin_file.is_file():
+            return send_from_directory(BASE_DIR / "plugin", req_path.replace("plugin/", "", 1))
     frontend_file = BASE_DIR / "frontend" / req_path
     if frontend_file.is_file():
         return send_from_directory(BASE_DIR / "frontend", req_path)
