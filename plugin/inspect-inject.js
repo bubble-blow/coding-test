@@ -81,6 +81,9 @@
 
   const onClickCapture = (e) => {
     if (!inspectMode) return;
+    if (e.target === btn || btn.contains(e.target) || panel.contains(e.target)) {
+      return;
+    }
     e.preventDefault(); e.stopPropagation();
     const list = document.elementsFromPoint(e.clientX, e.clientY).filter(el => !panel.contains(el) && el !== btn && el !== panel);
     panel.style.display = 'block';
@@ -106,6 +109,7 @@
     inspectMode = !inspectMode;
     btn.textContent = inspectMode ? 'Inspect: ON' : 'Inspect';
     panel.style.display = inspectMode ? 'block' : 'none';
+    if (!inspectMode) clearHighlight();
     if (inspectMode) panel.innerHTML = '<div>Inspect 模式已开启，请点击页面任意位置。</div>';
   };
   document.addEventListener('click', onClickCapture, true);
