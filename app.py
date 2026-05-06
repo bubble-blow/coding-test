@@ -617,8 +617,8 @@ def collect_code_files(root: Path) -> str:
             content = f.read_text(encoding="utf-8")
         except UnicodeDecodeError:
             continue
-        sections.append(f"### {f.relative_to(root)}\n```\\n{content}\\n```")
-    return "\\n\\n".join(sections)
+        sections.append(f"### {f.relative_to(root)}\n```\n{content}\n```")
+    return "\n\n".join(sections)
 
 
 @app.post("/api/preview-modify")
@@ -643,13 +643,13 @@ def api_preview_modify():
         return jsonify({"error": "页面路径不存在"}), 400
 
     prompt = (
-        f"你需要按如下输出要求完成代码修改：{PROMPTS['coding']}\\n\\n"
-        f"页面URL路径: /{page_url}\\n"
-        f"目标元素选择器: {selector}\\n"
-        f"目标元素标签内容(不含子元素): {own_text}\\n"
-        f"用户修改意见: {suggestion}\\n\\n"
-        "以下是当前路径下的全部代码文件：\\n"
-        f"{collect_code_files(target_root)}\\n\\n"
+        f"你需要按如下输出要求完成代码修改：{PROMPTS['coding']}\n\n"
+        f"页面URL路径: /{page_url}\n"
+        f"目标元素选择器: {selector}\n"
+        f"目标元素标签内容(不含子元素): {own_text}\n"
+        f"用户修改意见: {suggestion}\n\n"
+        "以下是当前路径下的全部代码文件：\n"
+        f"{collect_code_files(target_root)}\n\n"
         "请只输出需要修改后的代码文件，使用 ```file:path``` 包裹。"
     )
     try:
@@ -660,7 +660,7 @@ def api_preview_modify():
     if not files:
         return jsonify({"error": "LLM 未返回有效代码块"}), 400
 
-    new_rel = (target_rel + "/" if target_rel else "") + f"_edited_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+    new_rel = (target_rel if target_rel else "") + f"_edited_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
     new_root = DEPLOY_DIR / new_rel
     copy_dir_merge(target_root, new_root)
     for path, content in files.items():
