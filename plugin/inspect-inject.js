@@ -86,6 +86,9 @@
     if (shouldBypassOverlay(e.target)) {
       return;
     }
+    if (e.type === 'click') {
+      handleInspectPick(e);
+    }
     e.preventDefault();
     e.stopPropagation();
     if (typeof e.stopImmediatePropagation === 'function') {
@@ -93,8 +96,7 @@
     }
   };
 
-  const onClickCapture = (e) => {
-    if (!inspectMode || shouldBypassOverlay(e.target)) return;
+  const handleInspectPick = (e) => {
     const list = document.elementsFromPoint(e.clientX, e.clientY).filter(el => !panel.contains(el) && el !== btn && el !== panel);
     panel.style.display = 'block';
     panel.innerHTML = '<div style="margin-bottom:8px;">点击选择目标元素：</div>';
@@ -125,5 +127,4 @@
   ['pointerdown', 'mousedown', 'mouseup', 'click', 'dblclick', 'touchstart', 'touchend'].forEach((evt) => {
     document.addEventListener(evt, blockEventInInspectMode, true);
   });
-  document.addEventListener('click', onClickCapture, true);
 })();
