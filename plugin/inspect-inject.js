@@ -13,7 +13,12 @@
 
   let inspectMode = false;
   let highlighted = null;
-  const clearHighlight = () => { if (highlighted) { highlighted.style.outline = highlighted.__oldOutline || ''; highlighted = null; } };
+  const clearHighlight = () => {
+    if (highlighted) {
+      highlighted.style.boxShadow = highlighted.__oldBoxShadow || '';
+      highlighted = null;
+    }
+  };
   const short = (el) => {
     if (!el) return '';
     const id = el.id ? `#${el.id}` : '';
@@ -69,7 +74,12 @@
       item.textContent = `${idx+1}. ${short(el)}`;
       item.style.padding = '6px'; item.style.border='1px solid #eee'; item.style.marginBottom='4px'; item.style.cursor='pointer';
       item.style.fontSize = '13px'; item.style.lineHeight = '1.5'; item.style.color = '#111827';
-      item.onmouseenter = () => { clearHighlight(); highlighted = el; el.__oldOutline = el.style.outline; el.style.outline='2px solid #f97316'; };
+      item.onmouseenter = () => {
+        clearHighlight();
+        highlighted = el;
+        el.__oldBoxShadow = el.style.boxShadow;
+        el.style.boxShadow = 'inset 0 0 0 2px #f97316';
+      };
       item.onmouseleave = () => clearHighlight();
       item.onclick = (ev) => { ev.stopPropagation(); renderFeedback(el, ownText(el)); };
       panel.appendChild(item);
