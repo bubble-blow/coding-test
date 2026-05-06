@@ -4,11 +4,11 @@
 
   const btn = document.createElement('button');
   btn.textContent = 'Inspect';
-  Object.assign(btn.style, {position:'fixed',right:'16px',bottom:'16px',zIndex:'999999',padding:'8px 12px',background:'#2563eb',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer'});
+  Object.assign(btn.style, {position:'fixed',right:'16px',bottom:'16px',zIndex:'999999',padding:'8px 12px',background:'#2563eb',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer',fontSize:'14px',lineHeight:'1.4'});
   document.body.appendChild(btn);
 
   const panel = document.createElement('div');
-  Object.assign(panel.style, {position:'fixed',right:'16px',bottom:'64px',width:'360px',maxHeight:'60vh',overflow:'auto',background:'#fff',border:'1px solid #ddd',borderRadius:'8px',padding:'12px',zIndex:'999999',display:'none',fontSize:'12px',boxShadow:'0 8px 24px rgba(0,0,0,.2)'});
+  Object.assign(panel.style, {position:'fixed',right:'16px',bottom:'64px',width:'360px',maxHeight:'60vh',overflow:'auto',background:'#fff',border:'1px solid #ddd',borderRadius:'8px',padding:'12px',zIndex:'999999',display:'none',fontSize:'13px',lineHeight:'1.5',color:'#111827',fontFamily:'-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif',boxShadow:'0 8px 24px rgba(0,0,0,.2)'});
   document.body.appendChild(panel);
 
   let inspectMode = false;
@@ -29,11 +29,11 @@
     panel.appendChild(title);
     const ta = document.createElement('textarea');
     ta.placeholder = '请输入修改意见';
-    ta.style.width = '100%'; ta.style.height = '90px'; ta.style.marginTop = '8px';
+    ta.style.width = '100%'; ta.style.height = '90px'; ta.style.marginTop = '8px'; ta.style.fontSize = '13px'; ta.style.lineHeight = '1.5'; ta.style.color = '#111827';
     panel.appendChild(ta);
     const submit = document.createElement('button');
     submit.textContent = '提交修改';
-    submit.style.marginTop = '8px';
+    submit.style.marginTop = '8px'; submit.style.fontSize = '13px'; submit.style.lineHeight = '1.4'; submit.style.color = '#111827';
     submit.onclick = async () => {
       const suggestion = ta.value.trim();
       if (!suggestion) return alert('请先输入修改意见');
@@ -68,6 +68,7 @@
       const item = document.createElement('div');
       item.textContent = `${idx+1}. ${short(el)}`;
       item.style.padding = '6px'; item.style.border='1px solid #eee'; item.style.marginBottom='4px'; item.style.cursor='pointer';
+      item.style.fontSize = '13px'; item.style.lineHeight = '1.5'; item.style.color = '#111827';
       item.onmouseenter = () => { clearHighlight(); highlighted = el; el.__oldOutline = el.style.outline; el.style.outline='2px solid #f97316'; };
       item.onmouseleave = () => clearHighlight();
       item.onclick = (ev) => { ev.stopPropagation(); renderFeedback(el, ownText(el)); };
