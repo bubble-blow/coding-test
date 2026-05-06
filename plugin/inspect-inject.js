@@ -79,12 +79,22 @@
     panel.appendChild(submit);
   };
 
-  const onClickCapture = (e) => {
+  const shouldBypassOverlay = (target) => target === btn || btn.contains(target) || panel.contains(target);
+
+  const blockEventInInspectMode = (e) => {
     if (!inspectMode) return;
-    if (e.target === btn || btn.contains(e.target) || panel.contains(e.target)) {
+    if (shouldBypassOverlay(e.target)) {
       return;
     }
-    e.preventDefault(); e.stopPropagation();
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof e.stopImmediatePropagation === 'function') {
+      e.stopImmediatePropagation();
+    }
+  };
+
+  const onClickCapture = (e) => {
+    if (!inspectMode || shouldBypassOverlay(e.target)) return;
     const list = document.elementsFromPoint(e.clientX, e.clientY).filter(el => !panel.contains(el) && el !== btn && el !== panel);
     panel.style.display = 'block';
     panel.innerHTML = '<div style="margin-bottom:8px;">点击选择目标元素：</div>';
@@ -112,5 +122,8 @@
     if (!inspectMode) clearHighlight();
     if (inspectMode) panel.innerHTML = '<div>Inspect 模式已开启，请点击页面任意位置。</div>';
   };
+  ['pointerdown', 'mousedown', 'mouseup', 'click', 'dblclick', 'touchstart', 'touchend'].forEach((evt) => {
+    document.addEventListener(evt, blockEventInInspectMode, true);
+  });
   document.addEventListener('click', onClickCapture, true);
 })();
