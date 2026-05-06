@@ -11,12 +11,28 @@
   Object.assign(panel.style, {position:'fixed',right:'16px',bottom:'64px',width:'360px',maxHeight:'60vh',overflow:'auto',background:'#fff',border:'1px solid #ddd',borderRadius:'8px',padding:'12px',zIndex:'999999',display:'none',fontSize:'13px',lineHeight:'1.5',color:'#111827',fontFamily:'-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif',boxShadow:'0 8px 24px rgba(0,0,0,.2)'});
   document.body.appendChild(panel);
 
+  const highlightBox = document.createElement('div');
+  Object.assign(highlightBox.style, {position:'fixed',left:'0',top:'0',width:'0',height:'0',border:'2px solid #f97316',pointerEvents:'none',zIndex:'999998',display:'none',boxSizing:'border-box'});
+  document.body.appendChild(highlightBox);
+
   let inspectMode = false;
   let highlighted = null;
+  let highlightRaf = null;
+  const syncHighlightBox = () => {
+    if (!highlighted) return;
+    const rect = highlighted.getBoundingClientRect();
+    highlightBox.style.left = `${rect.left}px`;
+    highlightBox.style.top = `${rect.top}px`;
+    highlightBox.style.width = `${rect.width}px`;
+    highlightBox.style.height = `${rect.height}px`;
+    highlightRaf = requestAnimationFrame(syncHighlightBox);
+  };
   const clearHighlight = () => {
-    if (highlighted) {
-      highlighted.style.boxShadow = highlighted.__oldBoxShadow || '';
-      highlighted = null;
+    highlighted = null;
+    highlightBox.style.display = 'none';
+    if (highlightRaf) {
+      cancelAnimationFrame(highlightRaf);
+      highlightRaf = null;
     }
   };
   const short = (el) => {
@@ -77,8 +93,8 @@
       item.onmouseenter = () => {
         clearHighlight();
         highlighted = el;
-        el.__oldBoxShadow = el.style.boxShadow;
-        el.style.boxShadow = 'inset 0 0 0 2px #f97316';
+        highlightBox.style.display = 'block';
+        syncHighlightBox();
       };
       item.onmouseleave = () => clearHighlight();
       item.onclick = (ev) => { ev.stopPropagation(); renderFeedback(el, ownText(el)); };
