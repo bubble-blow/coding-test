@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AI Coding 平台</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <script defer src="/app.js"></script>
+</head>
+<body class="page-root">
+  <h1 class="page-title">AI Coding 开发平台</h1>
+  <div class="panel-card">
+    <h3>LLM API 配置</h3>
+    <input id="base_url" placeholder="base_url" />
+    <input id="api_key" placeholder="api_key" />
+    <input id="model" placeholder="model" />
+    <input id="max_tokens" placeholder="max_tokens(默认8192)" />
+    <button onclick="saveConfig()">保存配置</button>
+  </div>
+  <div class="panel-card">
+    <h3>自动回归</h3>
+    <textarea id="auto_input" class="input-textarea" placeholder="输入本轮编码目标；系统会自动执行 coding -> review，并按评审反馈最多重试 N 次"></textarea>
+    <div class="toolbar-row">
+      <label>最大重试次数 <input id="auto_retries" type="number" min="0" max="5" value="2" /></label>
+      <button class="action-btn primary-btn" onclick="autoRegression()">启动自动回归</button>
+    </div>
+    <pre id="auto_result" class="result-box"></pre>
+  </div>
+  <div class="pipeline-grid" id="pipeline"></div>
+  <div class="panel-card">
+    <h3>可观测性面板</h3>
+    <div id="metrics" class="metrics-grid"></div>
+    <h4>按阶段统计</h4>
+    <div id="step_metrics" class="table-wrap"></div>
+    <h4>最近运行</h4>
+    <div id="recent_runs" class="table-wrap"></div>
+  </div>
+  <div class="panel-card"><h3>LLM API 监控</h3><div><b>进行中请求</b><pre id="inflight"></pre></div><div><b>历史日志</b><pre id="logs"></pre></div></div>
+  <div class="floating-inflight">
+    <h4 class="floating-title">进行中的 LLM 请求</h4>
+    <ul id="inflight_list" class="floating-list"></ul>
+  </div>
+</body>
+</html>
